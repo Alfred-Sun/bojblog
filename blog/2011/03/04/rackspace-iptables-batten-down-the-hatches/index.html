@@ -5,7 +5,7 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>mojobojo.com</title>
+  <title>RackSpace and iptables - mojobojo.com</title>
   <meta name="author" content="Brian "bojo" Jones">
 
   
@@ -18,7 +18,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://boj.github.io">
+  <link rel="canonical" href="http://boj.github.io/blog/2011/03/04/rackspace-iptables-batten-down-the-hatches">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/atom.xml" rel="alternate" title="mojobojo.com" type="application/atom+xml">
@@ -76,15 +76,12 @@
 </nav>
   <div id="main">
     <div id="content">
-      <div class="blog-index">
+      <div>
+<article class="hentry" role="article">
   
-  
-  
-    <article>
-      
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2011/03/04/rackspace-iptables-batten-down-the-hatches/">RackSpace and Iptables</a></h1>
+      <h1 class="entry-title">RackSpace and Iptables</h1>
     
     
       <p class="meta">
@@ -102,14 +99,14 @@
 
 <time datetime="2011-03-04T00:00:00+09:00" pubdate data-updated="true">Mar 4<span>th</span>, 2011</time>
         
-         | <a href="/blog/2011/03/04/rackspace-iptables-batten-down-the-hatches/#disqus_thread">Comments</a>
+         | <a href="#disqus_thread">Comments</a>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><h2>Introduction</h2>
+<div class="entry-content"><h2>Introduction</h2>
 
 <p>This is a followup post to my last entry about <a href="http://boj.github.com/blog/2011/01/14/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/">LVS &ndash; Nginx &ndash; NodeJS &ndash; MongoDB &ndash; Cluster Setup on RackSpace</a>, and focuses on implementing iptables rules to lock down the cluster from both external and internal probing.  It&rsquo;s important to note that RackSpace&rsquo;s servers are wide open on all interfaces, and that other members in their internal network can sniff ports on your machine&rsquo;s internal interfaces.</p>
 
@@ -117,27 +114,137 @@
 
 <p>I will keep things simple and just breakdown my rule sets by their specific jobs.  I figure little to no explanation is needed.</p>
 
+<!-- more -->
+
+
+<h3>Note</h3>
+
+<p>It&rsquo;s very useful when working on a network server to remember to run the following rule first before anything else so you don&rsquo;t lock yourself out of your server.  RackSpace has a handy console which you can use via their browser interface should you kill your ssh connection, so this is a tip to cut down on hassle more than anything else.</p>
+
+<pre><code>iptables -P INPUT ACCEPT
+</code></pre>
+
+<p>My rules also include the command <em>/sbin/service iptables save</em> which is RHEL/CentOS specific and saves the configuration out for you.</p>
+
+<h3>Admin Server Configuration</h3>
+
+<pre><code>iptables -P INPUT ACCEPT
+iptables -F
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p udp --dport 8646:8649 -j ACCEPT # gmond
+
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+
+iptables -A INPUT -i lo -j ACCEPT
+
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+/sbin/service iptables save
+
+iptables -L -v
+</code></pre>
+
+<p>The reason gmond runs on 4 ports will be explained in a later blog post about setting up Ganglia in unicast mode.</p>
+
+<h3>Load Balancer Configuration</h3>
+
+<p>First you must edit /etc/services and add the following line.</p>
+
+<pre><code>vrrp            112/raw
+</code></pre>
+
+<p>Then add your rules.</p>
+
+<pre><code>iptables -P INPUT ACCEPT
+iptables -F
+iptables -A INPUT -p tcp --dport 22 -s x.x.x.x -j ACCEPT # Only allow access from the admin server
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p udp --dport 8649 -j ACCEPT # gmond
+iptables -A INPUT -p tcp --dport 8649 -j ACCEPT # gmond
+
+iptables -p vrrp -A INPUT -j ACCEPT
+iptables -p vrrp -A OUTPUT -j ACCEPT
+
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+
+iptables -A INPUT -i lo -j ACCEPT
+
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+/sbin/service iptables save
+
+iptables -L -v
+</code></pre>
+
+<p>The vrrp commands allow your LVS machines to broadcast to each other so they can take over in case the other fails.</p>
+
+<h3>Application Server Configuration</h3>
+
+<pre><code>iptables -P INPUT ACCEPT
+iptables -F
+iptables -A INPUT -p tcp --dport 22 -s x.x.x.x -j ACCEPT # Only allow access from the admin server
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p udp --dport 8649 -j ACCEPT # gmond
+iptables -A INPUT -p tcp --dport 8649 -j ACCEPT # gmond
+
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -i eth1 -j ACCEPT
+
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+/sbin/service iptables save
+
+iptables -L -v
+</code></pre>
+
+<p>The eth1 rule is to allow LVS to connect to the realserver.  Without it your connection will just hang at the director level.</p>
+
+<h3>Database Cluster Configuration</h3>
+
+<pre><code>iptables -P INPUT ACCEPT
+iptables -F
+iptables -A INPUT -p tcp --dport 22 -s x.x.x.x -j ACCEPT # Only allow access from the admin server
+iptables -A INPUT -p tcp --dport 27017 -j ACCEPT # mongodb
+iptables -A INPUT -p tcp --dport 28017 -j ACCEPT # mongodb web stats
+iptables -A INPUT -p udp --dport 8649 -j ACCEPT # gmond
+iptables -A INPUT -p tcp --dport 8649 -j ACCEPT # gmond
+
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+
+iptables -A INPUT -i lo -j ACCEPT
+
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+/sbin/service iptables save
+
+iptables -L -v
+</code></pre>
+
+<h2>Conclusion</h2>
+
+<p>There&rsquo;s really not much different between the scripts except for a few token places specific to the server&rsquo;s services.  I will update this blog post if I discover better ways to tighten things down.</p>
 </div>
-  
-  
-    <footer>
-      <a rel="full-article" href="/blog/2011/03/04/rackspace-iptables-batten-down-the-hatches/">Read on &rarr;</a>
-    </footer>
-  
 
 
-    </article>
-  
-  
-    <article>
+  <footer>
+    <p class="meta">
       
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2011/01/20/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/">LVS - Nginx - NodeJS - MongoDB - Cluster Setup on RackSpace</a></h1>
-    
-    
-      <p class="meta">
-        
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Brian "bojo" Jones</span></span>
+
+      
 
 
 
@@ -149,36 +256,44 @@
   
 
 
-<time datetime="2011-01-20T00:00:00+09:00" pubdate data-updated="true">Jan 20<span>th</span>, 2011</time>
-        
-         | <a href="/blog/2011/01/20/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/#disqus_thread">Comments</a>
-        
-      </p>
+<time datetime="2011-03-04T00:00:00+09:00" pubdate data-updated="true">Mar 4<span>th</span>, 2011</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/rackspace/'>Rackspace</a>, <a class='category' href='/blog/categories/scalability/'>Scalability</a>, <a class='category' href='/blog/categories/social-games/'>Social Games</a>
+  
+</span>
+
+
+    </p>
     
-  </header>
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://boj.github.io/blog/2011/03/04/rackspace-iptables-batten-down-the-hatches/" data-via="mojobojo" data-counturl="http://boj.github.io/blog/2011/03/04/rackspace-iptables-batten-down-the-hatches/" >Tweet</a>
+  
+  
+  
+</div>
 
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2011/01/20/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/" title="Previous Post: LVS - Nginx - NodeJS - MongoDB - Cluster Setup on RackSpace">&laquo; LVS - Nginx - NodeJS - MongoDB - Cluster Setup on RackSpace</a>
+      
+      
+    </p>
+  </footer>
+</article>
 
-  <div class="entry-content"><h2>Introduction</h2>
-
-<p>This article will lay out the steps I used to build a high availability scalable social game server cluster on the RackSpace Cloud for the latest project I am working on at <a href="http://www.istpika.com/en">Istpika</a>.  The basic requirements were a simple HTTP based API which exposes a RESTful-like interface to the client, pioneer our first use of MongoDB as the backend database, a fault tolerant setup, and a service in North America.  The actual client is built on smartphones with the game logic written in JavaScript using a currently undisclosed SDK.  With that in mind, it seemed like building a full stack JavaScript system would make development a lot smoother for all parties involved, so I also decided to write the server logic in NodeJS, all of which ties in neatly with MongoDB&rsquo;s JavaScript system.</p>
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
 
 </div>
-  
-  
-    <footer>
-      <a rel="full-article" href="/blog/2011/01/20/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/">Read on &rarr;</a>
-    </footer>
-  
 
-
-    </article>
-  
-  <div class="pagination">
-    
-    <a href="/blog/archives">Blog Archives</a>
-    
-  </div>
-</div>
 <aside class="sidebar">
   
     <section>
@@ -199,7 +314,7 @@
 <section>
   <h1>GitHub Repos</h1>
   <ul id="gh_repos">
-    <li class="loading">Status updating&#8230;</li>
+    <li class="loading">Status updating...</li>
   </ul>
   
   <a href="https://github.com/boj">@boj</a> on GitHub
@@ -232,6 +347,7 @@
   
 </aside>
 
+
     </div>
   </div>
   <footer role="contentinfo"><p>
@@ -246,7 +362,10 @@
       var disqus_shortname = 'mojobojo';
       
         
-        var disqus_script = 'count.js';
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://boj.github.io/blog/2011/03/04/rackspace-iptables-batten-down-the-hatches/';
+        var disqus_url = 'http://boj.github.io/blog/2011/03/04/rackspace-iptables-batten-down-the-hatches/';
+        var disqus_script = 'embed.js';
       
     (function () {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
