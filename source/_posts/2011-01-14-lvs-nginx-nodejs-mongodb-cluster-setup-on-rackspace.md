@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "LVS - Nginx - NodeJS - MongoDB - Cluster Setup on RackSpace"
-date: 2011-01-20
+date: 2011-01-14
 comments: true
 categories: [Rackspace, Scalability, Social Games]
 ---
