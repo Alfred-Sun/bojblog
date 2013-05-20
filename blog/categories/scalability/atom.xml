@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Scalability | mojobojo.com]]></title>
   <link href="http://boj.github.io/blog/categories/scalability/atom.xml" rel="self"/>
   <link href="http://boj.github.io/"/>
-  <updated>2013-05-20T17:14:50+09:00</updated>
+  <updated>2013-05-20T18:12:52+09:00</updated>
   <id>http://boj.github.io/</id>
   <author>
     <name><![CDATA[Brian "bojo" Jones]]></name>
@@ -151,9 +151,9 @@ iptables -L -v
   
   <entry>
     <title type="html"><![CDATA[LVS - Nginx - NodeJS - MongoDB - Cluster Setup on RackSpace]]></title>
-    <link href="http://boj.github.io/blog/2011/01/20/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/"/>
-    <updated>2011-01-20T00:00:00+09:00</updated>
-    <id>http://boj.github.io/blog/2011/01/20/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace</id>
+    <link href="http://boj.github.io/blog/2011/01/14/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/"/>
+    <updated>2011-01-14T00:00:00+09:00</updated>
+    <id>http://boj.github.io/blog/2011/01/14/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace</id>
     <content type="html"><![CDATA[<h2>Introduction</h2>
 
 <p>This article will lay out the steps I used to build a high availability scalable social game server cluster on the RackSpace Cloud for the latest project I am working on at <a href="http://www.istpika.com/en">Istpika</a>.  The basic requirements were a simple HTTP based API which exposes a RESTful-like interface to the client, pioneer our first use of MongoDB as the backend database, a fault tolerant setup, and a service in North America.  The actual client is built on smartphones with the game logic written in JavaScript using a currently undisclosed SDK.  With that in mind, it seemed like building a full stack JavaScript system would make development a lot smoother for all parties involved, so I also decided to write the server logic in NodeJS, all of which ties in neatly with MongoDB&rsquo;s JavaScript system.</p>

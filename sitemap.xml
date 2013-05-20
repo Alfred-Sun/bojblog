@@ -2,9 +2,9 @@
 <urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>
     <url>
         <loc>
-            http://boj.github.io/blog/2011/01/20/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/
+            http://boj.github.io/blog/2011/01/14/lvs-nginx-nodejs-mongodb-cluster-setup-on-rackspace/
         </loc>
-        <lastmod>2013-05-20T01:52:26+09:00</lastmod>
+        <lastmod>2013-05-20T18:10:47+09:00</lastmod>
     </url>
     <url>
         <loc>
@@ -14,11 +14,11 @@
     </url>
     <url>
         <loc>http://boj.github.io/blog/archives/</loc>
-        <lastmod>2013-05-20T01:52:32+09:00</lastmod>
+        <lastmod>2013-05-20T18:10:47+09:00</lastmod>
     </url>
     <url>
         <loc>http://boj.github.io/</loc>
-        <lastmod>2013-05-20T01:52:32+09:00</lastmod>
+        <lastmod>2013-05-20T18:10:47+09:00</lastmod>
     </url>
     <url>
         <loc>http://boj.github.io/pgp.html</loc>
